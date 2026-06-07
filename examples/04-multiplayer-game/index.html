@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowSync Multiplayer Arena</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080B11;
+            --card-bg: rgba(17, 24, 39, 0.45);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f3f4f6;
+            --text-sec: #9ca3af;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at 10% 20%, rgba(24, 30, 48, 1) 0%, rgba(8, 11, 17, 1) 90%);
+            color: var(--text);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .container {
+            background: var(--card-bg);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            text-align: center;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2rem;
+            background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .tagline {
+            color: var(--text-sec);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        canvas {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            cursor: none; /* hide default cursor */
+        }
+
+        .instructions {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-sec);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Multiplayer Arena</h1>
+        <div class="tagline">Move your mouse to move your dot. All tabs sync in real-time!</div>
+
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+
+        <div class="instructions">
+            Open this page in multiple browser windows to play with yourself!
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Player configuration
+        const playerId = 'player_' + Math.random().toString(36).substring(2, 8);
+        const playerColor = `hsl(${Math.random() * 360}, 80%, 60%)`;
+        
+        let localPlayer = { x: 300, y: 200, color: playerColor };
+        const otherPlayers = new Map();
+
+        // Connect FlowSync WebSocket
+        const ws = new WebSocket('ws://localhost:8765');
+
+        ws.onopen = () => {
+            ws.send(JSON.stringify({
+                type: 'AUTH',
+                token: 'anonymous',
+                node_id: playerId
+            }));
+        };
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            
+            if (msg.type === 'AUTH_OK') {
+                // Join the game room
+                ws.send(JSON.stringify({
+                    type: 'JOIN_ROOM',
+                    room: 'game'
+                }));
+            }
+            
+            if (msg.type === 'BROADCAST') {
+                const data = msg.data;
+                if (data.id !== playerId) {
+                    otherPlayers.set(data.id, {
+                        x: data.x,
+                        y: data.y,
+                        color: data.color,
+                        lastSeen: Date.now()
+                    });
+                }
+            }
+        };
+
+        // Broadcast local position on mouse move
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            localPlayer.x = e.clientX - rect.left;
+            localPlayer.y = e.clientY - rect.top;
+
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'BROADCAST',
+                    room: 'game',
+                    event: 'move',
+                    data: {
+                        id: playerId,
+                        x: localPlayer.x,
+                        y: localPlayer.y,
+                        color: localPlayer.color
+                    }
+                }));
+            }
+        });
+
+        // Game loop
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Clean stale players (offline/inactive for > 3 seconds)
+            const now = Date.now();
+            for (const [id, player] of otherPlayers.entries()) {
+                if (now - player.lastSeen > 3000) {
+                    otherPlayers.delete(id);
+                }
+            }
+
+            // Draw other players
+            for (const player of otherPlayers.values()) {
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, 10, 0, Math.PI * 2);
+                ctx.fillStyle = player.color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = player.color;
+                ctx.fill();
+                ctx.closePath();
+            }
+
+            // Draw local player
+            ctx.beginPath();
+            ctx.arc(localPlayer.x, localPlayer.y, 10, 0, Math.PI * 2);
+            ctx.fillStyle = localPlayer.color;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = localPlayer.color;
+            ctx.fill();
+            ctx.closePath();
+
+            // Reset shadow
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>

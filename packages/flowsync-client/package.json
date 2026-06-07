@@ -1,0 +1,29 @@
+{
+  "name": "flowsync-client",
+  "version": "0.1.0",
+  "description": "Universal real-time state sync — JS/TS client",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test":  "vitest",
+    "dev":   "tsc --watch"
+  },
+  "dependencies": {
+    "eventemitter3": "^5.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest":     "^1.0.0",
+    "ws":         "^8.0.0",
+    "@types/ws":  "^8.0.0",
+    "react":      "^18.2.0",
+    "@types/react": "^18.2.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true }
+  }
+}

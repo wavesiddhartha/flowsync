@@ -1,0 +1,7 @@
+export { FlowSyncClient }          from "./client"
+export { FlowSyncProvider }        from "./react/context"
+export { useStream }               from "./react/useStream"
+export { useStreamValue }          from "./react/useStreamValue"
+export { useFlowSync }             from "./react/useFlowSync"
+export { stream }                  from "./stream"
+export type { FlowSyncClientOptions, SyncSummary, Meta } from "./client"

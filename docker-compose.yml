@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  hub-1:
+    build: .
+    ports:
+      - "8765:8765"
+    command: ["flowsync", "dev", "--host", "0.0.0.0", "--port", "8765", "--redis", "redis://:securepass123@redis:6379"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('127.0.0.1', 8765))"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+
+  hub-2:
+    build: .
+    ports:
+      - "8766:8765"
+    command: ["flowsync", "dev", "--host", "0.0.0.0", "--port", "8765", "--redis", "redis://:securepass123@redis:6379"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('127.0.0.1', 8765))"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass securepass123
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "securepass123", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 5

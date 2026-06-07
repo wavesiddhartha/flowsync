@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowSync Real-Time Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #080B11;
+            --card-bg: rgba(17, 24, 39, 0.45);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f3f4f6;
+            --text-sec: #9ca3af;
+            --accent: #6366f1;
+            --accent-sec: #06b6d4;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at 10% 20%, rgba(24, 30, 48, 1) 0%, rgba(8, 11, 17, 1) 90%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 3rem;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .dashboard-container {
+            max-width: 900px;
+            width: 100%;
+            background: var(--card-bg);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            position: relative;
+        }
+
+        .dashboard-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0) 100%);
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.25rem;
+            background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .tagline {
+            color: var(--text-sec);
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            margin-bottom: 2rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #f97316;
+            box-shadow: 0 0 10px #f97316;
+        }
+
+        .status-dot.online {
+            background-color: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        .chart-container {
+            margin-top: 1.5rem;
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+
+        .info-note {
+            color: var(--text-sec);
+            font-size: 0.8rem;
+            margin-top: 2rem;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <header style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h1>System Monitor</h1>
+                <div class="tagline">Streaming live resource usage metrics over FlowSync</div>
+            </div>
+            <div class="status-badge">
+                <div id="status-dot" class="status-dot"></div>
+                <span id="status-text">Connecting...</span>
+            </div>
+        </header>
+
+        <div class="chart-container">
+            <canvas id="metricsChart"></canvas>
+        </div>
+
+        <div class="info-note">
+            To feed data to this dashboard, run the CPU sensor script: <code>python examples/05-iot-sensor/sensor.py</code>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('metricsChart').getContext('2d');
+        const maxDataPoints = 30;
+        
+        // Initialize Chart.js Line Chart
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(maxDataPoints).fill(''),
+                datasets: [{
+                    label: 'CPU Usage (%)',
+                    data: Array(maxDataPoints).fill(0),
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { display: false }, ticks: { display: false } },
+                    y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af' } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // Connect WebSocket directly using the FlowSync wire protocol
+        const ws = new WebSocket('ws://localhost:8765');
+        const dot = document.getElementById('status-dot');
+        const txt = document.getElementById('status-text');
+
+        ws.onopen = () => {
+            // 1. Send AUTH
+            ws.send(JSON.stringify({
+                type: 'AUTH',
+                token: 'anonymous',
+                node_id: 'html-dashboard'
+            }));
+        };
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            
+            if (msg.type === 'AUTH_OK') {
+                dot.classList.add('online');
+                txt.textContent = 'Live Connected';
+                // 2. Subscribe to CPU metrics stream
+                ws.send(JSON.stringify({
+                    type: 'SUBSCRIBE',
+                    stream: 'metrics:cpu'
+                }));
+            }
+            
+            if (msg.type === 'UPDATE' && msg.stream === 'metrics:cpu') {
+                const cpuVal = Number(msg.value);
+                
+                // Add value to chart and shift dataset
+                chart.data.datasets[0].data.push(cpuVal);
+                chart.data.datasets[0].data.shift();
+                
+                chart.data.labels.push(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+                chart.data.labels.shift();
+                
+                chart.update('none'); // silent update
+            }
+        };
+
+        ws.onclose = () => {
+            dot.classList.remove('online');
+            txt.textContent = 'Disconnected';
+        };
+    </script>
+</body>
+</html>
