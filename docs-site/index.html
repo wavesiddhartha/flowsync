@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>FlowSync — Developer Docs</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Hide scrollbars globally */
+        ::-webkit-scrollbar {
+            display: none !important;
+        }
+        * {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #fafaf9;
+            color: #080808;
+            height: 100dvh;
+            overflow: hidden;
+        }
+
+        /* Pulse animation for the live dot */
+        @keyframes liveDotPulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+            }
+        }
+        .live-dot {
+            animation: liveDotPulse 2s infinite;
+        }
+
+        /* Custom keyframe dots animation */
+        @keyframes typing {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+        .typing-dot {
+            animation: typing 1.4s infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        /* active scale state transitions */
+        .btn-active-state {
+            transition: transform 0.1s ease;
+        }
+        .btn-active-state:active {
+            transform: scale(0.90);
+        }
+
+        /* iOS safe area bottom nav */
+        nav {
+            height: calc(52px + env(safe-area-inset-bottom)) !important;
+            padding-bottom: env(safe-area-inset-bottom) !important;
+        }
+
+        /* Strict input focus styles */
+        input:focus {
+            outline: none !important;
+            box-shadow: none !important;
+            border-color: transparent !important;
+        }
+    </style>
+</head>
+<body class="flex justify-center items-center">
+
+    <!-- Mobile-First Container (Mocking iOS device frame on desktop, full screen on mobile) -->
+    <div class="relative w-full max-w-[430px] h-[100dvh] bg-[#ffffff] border-x border-[#ebebea] flex flex-col justify-between overflow-hidden shadow-[0_1px_6px_rgba(8,8,8,0.06)]">
+        
+        <!-- TOP NAV BAR (52px) -->
+        <header class="h-[52px] min-h-[52px] border-b border-[#ebebea] px-4 flex justify-between items-center bg-white z-20">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 stroke-[#080808]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                <span class="text-[16px] font-semibold tracking-tight">FlowSync</span>
+            </div>
+            
+            <div class="flex items-center gap-1.5 border border-[#e4e4e0] rounded-full px-2.5 py-0.5 bg-[#f5f5f3]">
+                <div class="w-[5px] h-[5px] rounded-full bg-[#22c55e] live-dot"></div>
+                <span class="text-[9px] font-mono font-medium text-[#5a5a55] uppercase tracking-wider">v0.1.0-live</span>
+            </div>
+        </header>
+
+        <!-- MAIN SCROLLABLE CONTENT AREA -->
+        <main id="content-area" class="flex-1 overflow-y-auto bg-[#fafaf9] p-4 space-y-6 pb-20 scroll-touch">
+            
+            <!-- TAB 1: OVERVIEW -->
+            <section id="tab-overview" class="space-y-6">
+                <!-- Hero Intro Card -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-3">
+                    <span class="text-[9px] font-mono font-light text-[#b0b0a8] uppercase tracking-widest block">Introduction</span>
+                    <h2 class="text-[16px] font-semibold leading-tight text-[#080808]">Real-time state sync, resolved mathematically.</h2>
+                    <p class="text-[13px] text-[#5a5a55] leading-relaxed">
+                        FlowSync is an offline-first state synchronization engine. It links Python hubs to JS/React or Python clients, managing offline queueing and conflict merges automatically using Conflict-Free Replicated Data Types (CRDTs).
+                    </p>
+                    <div class="flex flex-wrap gap-2 pt-1">
+                        <span class="border border-[#e4e4e0] rounded-full px-2.5 py-0.5 text-[11px] font-mono font-light text-[#5a5a55] bg-white">PN-Counter</span>
+                        <span class="border border-[#e4e4e0] rounded-full px-2.5 py-0.5 text-[11px] font-mono font-light text-[#5a5a55] bg-white">2P-Set</span>
+                        <span class="border border-[#e4e4e0] rounded-full px-2.5 py-0.5 text-[11px] font-mono font-light text-[#5a5a55] bg-white">Sequence Text</span>
+                    </div>
+                </div>
+
+                <!-- Stats Dashboard Widget -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-4 space-y-3">
+                    <span class="text-[9px] font-mono font-light text-[#b0b0a8] uppercase tracking-widest block">Local Server Status</span>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-[#f5f5f3] rounded-[12px] p-3 text-left">
+                            <span class="text-[9px] font-mono text-[#b0b0a8] uppercase block">Client Status</span>
+                            <span class="text-[20px] font-bold text-[#080808] flex items-center gap-1.5 mt-0.5">
+                                <div class="w-[5px] h-[5px] rounded-full bg-[#22c55e] live-dot"></div>
+                                Online
+                            </span>
+                        </div>
+                        <div class="bg-[#f5f5f3] rounded-[12px] p-3 text-left">
+                            <span class="text-[9px] font-mono text-[#b0b0a8] uppercase block">Pending Queue</span>
+                            <span id="overview-pending-count" class="text-[20px] font-mono font-bold text-[#080808] mt-0.5">0 changes</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live CRDT Interactive Playground -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[9px] font-mono font-light text-[#b0b0a8] uppercase tracking-widest">Live CRDT Playground</span>
+                        <span id="connection-status-pill" class="border border-[#e4e4e0] rounded-full px-2 py-0.5 text-[11px] font-mono text-[#22c55e] bg-[#f5f5f3]">Node Connected</span>
+                    </div>
+
+                    <!-- Client Configuration Section -->
+                    <div class="space-y-1.5 border-b border-[#ebebea] pb-3">
+                        <div class="flex justify-between items-center bg-[#f5f5f3] rounded-full px-4 py-1.5">
+                            <span class="text-[11px] font-mono text-[#5a5a55] select-none">node_id:</span>
+                            <input type="text" id="client-id-input" value="client-node-1" oninput="updateClientId(this.value)" class="flex-1 bg-transparent text-[11px] font-mono text-[#080808] text-right focus:outline-none placeholder-[#c0c0bc]" placeholder="Enter Node ID...">
+                        </div>
+                    </div>
+
+                    <!-- Counter Sync Section -->
+                    <div class="space-y-2 border-b border-[#ebebea] pb-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[13px] font-medium text-[#080808]">PN-Counter:</span>
+                            <span id="playground-counter-val" class="text-[20px] font-mono font-bold">42</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="changeCounter(-1)" class="flex-1 bg-[#f5f5f3] hover:bg-[#ebebea] border border-[#e4e4e0] text-[#080808] rounded-full py-1.5 text-[12px] font-medium btn-active-state">- Decrement</button>
+                            <button onclick="changeCounter(1)" class="flex-1 bg-[#080808] text-white rounded-full py-1.5 text-[12px] font-medium btn-active-state">+ Increment</button>
+                        </div>
+                    </div>
+
+                    <!-- Offline Mode Simulator Toggle -->
+                    <div class="flex justify-between items-center pt-1">
+                        <div class="space-y-0.5">
+                            <span class="text-[13px] font-medium text-[#080808] block">Simulate Offline Mode</span>
+                            <span class="text-[10px] text-[#5a5a55] block">Queue changes locally on disconnection</span>
+                        </div>
+                        <!-- Toggle Switch -->
+                        <button id="offline-simulator-btn" onclick="toggleOffline()" class="relative w-10 h-6 bg-[#22c55e] rounded-full transition-colors duration-200 focus:outline-none">
+                            <span id="offline-toggle-knob" class="absolute top-1 left-5 w-4 h-4 bg-white rounded-full transition-transform duration-200 shadow-sm"></span>
+                        </button>
+                    </div>
+
+                    <!-- Operation Log Metadata Panel -->
+                    <div class="bg-[#f5f5f3] rounded-[12px] p-3 space-y-1.5">
+                        <div class="flex justify-between items-center border-b border-[#deded8] pb-1">
+                            <span class="text-[9px] font-mono text-[#b0b0a8] uppercase">CRDT Transaction History (ops)</span>
+                            <span id="crdt-sync-indicator" class="text-[9px] font-mono text-[#22c55e]">synced</span>
+                        </div>
+                        <div id="crdt-log-contents" class="text-[10px] font-mono text-[#5a5a55] h-[80px] overflow-y-auto space-y-1">
+                            <div>// No operations queued yet</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: INSTALLATION -->
+            <section id="tab-install" class="hidden space-y-6">
+                <!-- Requirements Section -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-3">
+                    <span class="text-[9px] font-mono font-light text-[#b0b0a8] uppercase tracking-widest block">System Requirements</span>
+                    <h2 class="text-[16px] font-semibold text-[#080808]">Environment Compatibility</h2>
+                    <ul class="text-[13px] text-[#5a5a55] space-y-1.5 list-disc list-inside leading-relaxed">
+                        <li><span class="font-semibold text-[#080808]">Python</span>: Version >= 3.10 required (uses native modern generic types and asyncio updates).</li>
+                        <li><span class="font-semibold text-[#080808]">Node.js</span>: Version >= 18.0 required.</li>
+                        <li><span class="font-semibold text-[#080808]">Browsers</span>: Modern standards with WebSocket & local storage support.</li>
+                    </ul>
+                </div>
+
+                <!-- Python Package SDK -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[9px] font-mono font-light text-[#b0b0a8] uppercase tracking-widest">Python SDK</span>
+                        <span class="border border-[#e4e4e0] rounded-full px-2 py-0.5 text-[11px] font-mono text-[#080808] bg-[#f5f5f3]">pip install</span>
+                    </div>
+                    <h2 class="text-[16px] font-semibold text-[#080808]">Backend & Hub Server</h2>
+                    <p class="text-[13px] text-[#5a5a55] leading-relaxed">Installs the WebSocket Hub coordinator, rate limiters, security ACL check layer, and node client client SDK.</p>
+                    
+                    <!-- Copyable Code Block -->
+                    <div class="bg-[#f5f5f3] rounded-[12px] p-3 flex justify-between items-center">
+                        <code class="text-[12px] font-mono text-[#080808]">pip install flowsync</code>
+                        <button onclick="copyText('pip install flowsync', this)" class="text-[10px] font-mono text-[#5a5a55] hover:text-[#080808] border border-[#e4e4e0] bg-white px-2.5 py-1 rounded-full btn-active-state">Copy</button>
+                    </div>
+                </div>
+
+                <!-- JS/TS Browser Client SDK -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[9px] font-mono font-light text-[#b0b0a8] uppercase tracking-widest">NPM Package</span>
+                        <span class="border border-[#e4e4e0] rounded-full px-2 py-0.5 text-[11px] font-mono text-[#080808] bg-[#f5f5f3]">npm install</span>
+                    </div>
+                    <h2 class="text-[16px] font-semibold text-[#080808]">JavaScript/TypeScript Client</h2>
+                    <p class="text-[13px] text-[#5a5a55] leading-relaxed">Installs the browser SDK containing the local storage engine, socket listeners, and React synchronization hooks.</p>
+
+                    <!-- Copyable Code Block -->
+                    <div class="bg-[#f5f5f3] rounded-[12px] p-3 flex justify-between items-center">
+                        <code class="text-[12px] font-mono text-[#080808]">npm install flowsync-client</code>
+                        <button onclick="copyText('npm install flowsync-client', this)" class="text-[10px] font-mono text-[#5a5a55] hover:text-[#080808] border border-[#e4e4e0] bg-white px-2.5 py-1 rounded-full btn-active-state">Copy</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: DOCUMENTATION GUIDE -->
+            <section id="tab-guide" class="hidden space-y-6">
+                <!-- Implementation Steps Overview -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-3">
+                    <span class="text-[9px] font-mono font-light text-[#b0b0a8] uppercase tracking-widest block">Tutorial</span>
+                    <h2 class="text-[16px] font-semibold text-[#080808]">Step-by-Step Implementation</h2>
+                    <p class="text-[13px] text-[#5a5a55] leading-relaxed">Follow this process to deploy a fully collaborative real-time feature in minutes.</p>
+                </div>
+
+                <!-- Step 1 Card -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-3">
+                    <span class="text-[9px] font-mono font-semibold text-[#b0b0a8] uppercase block">Step 1 — Start the Hub</span>
+                    <p class="text-[13px] text-[#5a5a55] leading-relaxed">Start the central hub in Python and pre-register a collaborative counter stream.</p>
+                    
+                    <div class="bg-[#f5f5f3] rounded-[12px] p-3 overflow-x-auto relative">
+                        <pre class="text-[10px] font-mono text-[#5a5a55] leading-normal">
+import asyncio
+from flowsync import FlowSyncHub
+
+async def main():
+    hub = FlowSyncHub(host="127.0.0.1", port=8765)
+    hub.stream("counter:val", merge_rule="crdt-counter")
+    await hub.start()
+
+asyncio.run(main())</pre>
+                    </div>
+                </div>
+
+                <!-- Step 2 Card -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-3">
+                    <span class="text-[9px] font-mono font-semibold text-[#b0b0a8] uppercase block">Step 2 — Connect Client (Vanilla)</span>
+                    <p class="text-[13px] text-[#5a5a55] leading-relaxed">Initialize the TypeScript client and update the stream value.</p>
+                    
+                    <div class="bg-[#f5f5f3] rounded-[12px] p-3 overflow-x-auto">
+                        <pre class="text-[10px] font-mono text-[#5a5a55] leading-normal">
+import { FlowSyncClient } from 'flowsync-client'
+
+const client = new FlowSyncClient({
+  url: 'ws://127.0.0.1:8765'
+})
+await client.connect()
+
+// Push increment operation
+await client.push('counter:val', {
+  op: 'increment',
+  amount: 1
+})</pre>
+                    </div>
+                </div>
+
+                <!-- Step 3 Card -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-3">
+                    <span class="text-[9px] font-mono font-semibold text-[#b0b0a8] uppercase block">Step 3 — React Hook Sync</span>
+                    <p class="text-[13px] text-[#5a5a55] leading-relaxed">Bind the stream state directly inside React components using the `useStream` hook.</p>
+                    
+                    <div class="bg-[#f5f5f3] rounded-[12px] p-3 overflow-x-auto">
+                        <pre class="text-[10px] font-mono text-[#5a5a55] leading-normal">
+import { useStream } from 'flowsync-client'
+
+function CounterWidget() {
+  const [val, push] = useStream('counter:val', 0)
+
+  return (
+    &lt;button onClick={() => push({
+      op: 'increment',
+      amount: 1
+    } as any)}&gt;
+      Count: {val}
+    &lt;/button&gt;
+  )
+}</pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: SOCIALS / LINKS -->
+            <section id="tab-socials" class="hidden space-y-6">
+                <!-- Project Directories & Assets -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-3">
+                    <span class="text-[9px] font-mono font-light text-[#b0b0a8] uppercase tracking-widest block">Package Directories</span>
+                    
+                    <div class="space-y-2">
+                        <!-- Github -->
+                        <a href="https://github.com/wavesiddhartha/flowsync" target="_blank" class="flex justify-between items-center p-3 rounded-[12px] bg-[#f5f5f3] hover:bg-[#ebebea] transition-all btn-active-state">
+                            <span class="text-[13px] font-medium text-[#080808]">GitHub Repository</span>
+                            <span class="text-[10px] font-mono text-[#3b82f6]">github.com</span>
+                        </a>
+                        
+                        <!-- PyPI -->
+                        <a href="https://pypi.org/project/flowsync/" target="_blank" class="flex justify-between items-center p-3 rounded-[12px] bg-[#f5f5f3] hover:bg-[#ebebea] transition-all btn-active-state">
+                            <span class="text-[13px] font-medium text-[#080808]">PyPI Project (Python)</span>
+                            <span class="text-[10px] font-mono text-[#3b82f6]">pypi.org</span>
+                        </a>
+
+                        <!-- npm -->
+                        <a href="https://www.npmjs.com/package/flowsync-client" target="_blank" class="flex justify-between items-center p-3 rounded-[12px] bg-[#f5f5f3] hover:bg-[#ebebea] transition-all btn-active-state">
+                            <span class="text-[13px] font-medium text-[#080808]">npm Package (JS/TS)</span>
+                            <span class="text-[10px] font-mono text-[#3b82f6]">npmjs.com</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Social Profiles -->
+                <div class="bg-white border border-[#e8e8e4] rounded-[20px] p-5 space-y-3">
+                    <span class="text-[9px] font-mono font-light text-[#b0b0a8] uppercase tracking-widest block">Author Socials</span>
+                    
+                    <div class="space-y-2">
+                        <!-- X/Twitter -->
+                        <a href="https://x.com/wavesiddhartha" target="_blank" class="flex justify-between items-center p-3 rounded-[12px] bg-[#f5f5f3] hover:bg-[#ebebea] transition-all btn-active-state">
+                            <span class="text-[13px] font-medium text-[#080808]">Follow on X</span>
+                            <span class="text-[10px] font-mono text-[#5a5a55]">@wavesiddhartha</span>
+                        </a>
+
+                        <!-- LinkedIn -->
+                        <a href="https://www.linkedin.com/in/wavesiddhartha/" target="_blank" class="flex justify-between items-center p-3 rounded-[12px] bg-[#f5f5f3] hover:bg-[#ebebea] transition-all btn-active-state">
+                            <span class="text-[13px] font-medium text-[#080808]">Connect on LinkedIn</span>
+                            <span class="text-[10px] font-mono text-[#5a5a55]">in/wavesiddhartha</span>
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- BOTTOM NAVIGATION BAR (52px) -->
+        <nav class="h-[52px] min-h-[52px] border-t border-[#ebebea] flex justify-around items-center bg-white z-20">
+            <!-- Nav Item 1: Overview -->
+            <button onclick="switchTab('overview')" id="nav-overview" class="flex flex-col items-center justify-center flex-1 h-full text-[#080808] btn-active-state">
+                <svg class="w-5 h-5 stroke-[#080808]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+                <span class="text-[9px] font-mono mt-0.5 tracking-tight font-medium">Overview</span>
+            </button>
+
+            <!-- Nav Item 2: Install -->
+            <button onclick="switchTab('install')" id="nav-install" class="flex flex-col items-center justify-center flex-1 h-full text-[#5a5a55] btn-active-state">
+                <svg class="w-5 h-5 stroke-[#5a5a55]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+                <span class="text-[9px] font-mono mt-0.5 tracking-tight font-medium">Install</span>
+            </button>
+
+            <!-- Nav Item 3: Guide -->
+            <button onclick="switchTab('guide')" id="nav-guide" class="flex flex-col items-center justify-center flex-1 h-full text-[#5a5a55] btn-active-state">
+                <svg class="w-5 h-5 stroke-[#5a5a55]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                </svg>
+                <span class="text-[9px] font-mono mt-0.5 tracking-tight font-medium">Guide</span>
+            </button>
+
+            <!-- Nav Item 4: Socials -->
+            <button onclick="switchTab('socials')" id="nav-socials" class="flex flex-col items-center justify-center flex-1 h-full text-[#5a5a55] btn-active-state">
+                <svg class="w-5 h-5 stroke-[#5a5a55]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                <span class="text-[9px] font-mono mt-0.5 tracking-tight font-medium">Links</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Live Simulator Script Logic -->
+    <script>
+        // Tab switching logic
+        const tabs = ['overview', 'install', 'guide', 'socials'];
+        function switchTab(targetTab) {
+            tabs.forEach(tab => {
+                const sec = document.getElementById(`tab-${tab}`);
+                const btn = document.getElementById(`nav-${tab}`);
+                const svg = btn.querySelector('svg');
+                
+                if (tab === targetTab) {
+                    sec.classList.remove('hidden');
+                    btn.classList.remove('text-[#5a5a55]');
+                    btn.classList.add('text-[#080808]');
+                    svg.classList.remove('stroke-[#5a5a55]');
+                    svg.classList.add('stroke-[#080808]');
+                } else {
+                    sec.classList.add('hidden');
+                    btn.classList.remove('text-[#080808]');
+                    btn.classList.add('text-[#5a5a55]');
+                    svg.classList.remove('stroke-[#080808]');
+                    svg.classList.add('stroke-[#5a5a55]');
+                }
+            });
+            // Reset scroll position on switch
+            document.getElementById('content-area').scrollTop = 0;
+        }
+
+        // Live CRDT playground states
+        let isOnline = true;
+        let counterValue = 42;
+        let pendingCount = 0;
+        let clientId = "client-node-1";
+        let operationLog = [
+            { op: "insert", stream: "counter:val", amount: 42, ts: (Date.now() / 1000 - 10).toFixed(2), node: "server", status: "synced" }
+        ];
+
+        function updateClientId(val) {
+            clientId = val.trim() || "client-node-1";
+        }
+
+        function updatePlaygroundUI() {
+            // Render counter
+            document.getElementById('playground-counter-val').textContent = counterValue;
+            
+            // Render pending stats
+            const countStr = pendingCount === 1 ? '1 change' : `${pendingCount} changes`;
+            document.getElementById('overview-pending-count').textContent = countStr;
+            
+            // Render log
+            const logBox = document.getElementById('crdt-log-contents');
+            if (operationLog.length === 0) {
+                logBox.innerHTML = '<div>// No operations queued yet</div>';
+            } else {
+                logBox.innerHTML = operationLog.map(op => {
+                    const statusColor = op.status === 'synced' ? 'text-[#22c55e]' : 'text-[#ef4444]';
+                    return `<div class="flex justify-between">
+                        <span>${op.ts} > ${op.node}: ${op.op} [${op.amount}]</span>
+                        <span class="${statusColor}">${op.status}</span>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        // Simulate local edits
+        function changeCounter(amount) {
+            counterValue += amount;
+            const now = (Date.now() / 1000).toFixed(2);
+            
+            const newOp = {
+                op: amount > 0 ? "increment" : "decrement",
+                stream: "counter:val",
+                amount: Math.abs(amount),
+                ts: now,
+                node: clientId,
+                status: isOnline ? "synced" : "queued"
+            };
+            
+            // Append log
+            operationLog.unshift(newOp);
+            
+            if (!isOnline) {
+                pendingCount++;
+            } else {
+                // Flash sync indicator
+                const syncInd = document.getElementById('crdt-sync-indicator');
+                syncInd.textContent = 'syncing...';
+                syncInd.classList.remove('text-[#22c55e]');
+                syncInd.classList.add('text-[#5a5a55]');
+                setTimeout(() => {
+                    syncInd.textContent = 'synced';
+                    syncInd.classList.remove('text-[#5a5a55]');
+                    syncInd.classList.add('text-[#22c55e]');
+                }, 400);
+            }
+            
+            updatePlaygroundUI();
+        }
+
+        // Toggle offline simulation
+        function toggleOffline() {
+            isOnline = !isOnline;
+            const btn = document.getElementById('offline-simulator-btn');
+            const knob = document.getElementById('offline-toggle-knob');
+            const statusPill = document.getElementById('connection-status-pill');
+            
+            if (isOnline) {
+                // Online configuration
+                btn.classList.remove('bg-[#d0d0cc]');
+                btn.classList.add('bg-[#22c55e]');
+                knob.style.transform = 'translateX(0px)';
+                statusPill.textContent = 'Node Connected';
+                statusPill.classList.remove('text-[#ef4444]', 'bg-[#f5f5f3]');
+                statusPill.classList.add('text-[#22c55e]', 'bg-[#f5f5f3]');
+                
+                // Reconnect & sync process
+                if (pendingCount > 0) {
+                    const syncInd = document.getElementById('crdt-sync-indicator');
+                    syncInd.textContent = 'syncing queue...';
+                    syncInd.classList.remove('text-[#22c55e]');
+                    syncInd.classList.add('text-[#5a5a55]');
+                    
+                    setTimeout(() => {
+                        // Resolve all queued logs
+                        operationLog.forEach(op => {
+                            if (op.status === 'queued') op.status = 'synced';
+                        });
+                        pendingCount = 0;
+                        syncInd.textContent = 'synced';
+                        syncInd.classList.remove('text-[#5a5a55]');
+                        syncInd.classList.add('text-[#22c55e]');
+                        updatePlaygroundUI();
+                    }, 800);
+                }
+            } else {
+                // Offline configuration
+                btn.classList.remove('bg-[#22c55e]');
+                btn.classList.add('bg-[#d0d0cc]');
+                knob.style.transform = 'translateX(-16px)';
+                statusPill.textContent = 'Node Offline';
+                statusPill.classList.remove('text-[#22c55e]');
+                statusPill.classList.add('text-[#ef4444]');
+            }
+            updatePlaygroundUI();
+        }
+
+        // Copy code helper
+        function copyText(text, btn) {
+            navigator.clipboard.writeText(text);
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.classList.remove('text-[#5a5a55]');
+            btn.classList.add('text-[#22c55e]', 'border-[#22c55e]');
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('text-[#22c55e]', 'border-[#22c55e]');
+                btn.classList.add('text-[#5a5a55]');
+            }, 1000);
+        }
+
+        // Initialize UI
+        updatePlaygroundUI();
+    </script>
+</body>
+</html>
