@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="FlowSync Logo" width="180"/>
+  <img src="assets/banner.png" alt="FlowSync Banner" width="100%"/>
 </p>
 
 <h1 align="center">FlowSync</h1>
