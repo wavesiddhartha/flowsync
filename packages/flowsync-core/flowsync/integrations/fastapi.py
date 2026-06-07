@@ -54,8 +54,11 @@ def mount_flowsync(
     import time
     if hub._start_time == 0.0:
         hub._start_time = time.time()
-    if hub._stats_task is None or hub._stats_task.done():
-        hub._stats_task = hub._spawn(hub._stats_tracker())
+
+    @app.on_event("startup")
+    async def startup_flowsync_hub():
+        if hub._stats_task is None or hub._stats_task.done():
+            hub._stats_task = hub._spawn(hub._stats_tracker())
 
     @app.on_event("shutdown")
     async def cleanup_flowsync_hub():
