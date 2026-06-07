@@ -4,6 +4,11 @@
   "description": "Universal real-time state sync — JS/TS client",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "test":  "vitest",
