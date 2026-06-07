@@ -110,6 +110,7 @@ def crdt_text_merge(val_a: Any, val_b: Any, meta_a: dict, meta_b: dict) -> tuple
     
     # ── SECURITY: Compact if ops exceed limit ──
     MAX_CRDT_TEXT_OPS = 50_000
+    is_snapshot = False
     if len(merged_val) > MAX_CRDT_TEXT_OPS:
         final_text = CRDTText.apply_all(merged_val)
         merged_val = [{
@@ -119,8 +120,9 @@ def crdt_text_merge(val_a: Any, val_b: Any, meta_a: dict, meta_b: dict) -> tuple
             "op_id": f"compact:{time.time_ns()}",
             "ts": ts
         }]
+        is_snapshot = True
         
-    return merged_val, {**meta_b, "ts": ts, "node_id": node_id}
+    return merged_val, {**meta_b, "ts": ts, "node_id": node_id, "snapshot": is_snapshot}
 
 
 def min_merge(val_a: Any, val_b: Any, meta_a: dict, meta_b: dict) -> tuple[Any, dict]:
@@ -156,9 +158,17 @@ def append_merge(val_a: Any, val_b: Any, meta_a: dict, meta_b: dict) -> tuple[An
     list_a = val_a if isinstance(val_a, list) else ([val_a] if val_a is not None else [])
     list_b = val_b if isinstance(val_b, list) else ([val_b] if val_b is not None else [])
     merged_val = list_a + list_b
+    
+    # ── SECURITY: Cap append-only log size to prevent memory exhaustion ──
+    MAX_APPEND_SIZE = 10_000
+    is_snapshot = False
+    if len(merged_val) > MAX_APPEND_SIZE:
+        merged_val = merged_val[-MAX_APPEND_SIZE:]
+        is_snapshot = True
+        
     ts = max(meta_a.get("ts", 0.0), meta_b.get("ts", 0.0))
     node_id = meta_a.get("node_id", "") if meta_a.get("ts", 0.0) > meta_b.get("ts", 0.0) else meta_b.get("node_id", "")
-    return merged_val, {**meta_b, "ts": ts, "node_id": node_id}
+    return merged_val, {**meta_b, "ts": ts, "node_id": node_id, "snapshot": is_snapshot}
 
 
 class MergeRuleRegistry:

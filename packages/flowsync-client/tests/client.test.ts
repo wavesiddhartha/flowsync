@@ -324,7 +324,7 @@ describe("FlowSyncClient Core Tests", () => {
     expect(client.isOnline).toBe(true)
   })
 
-  it("should compact crdt-text operations list when exceeding the limit", () => {
+  it("should overwrite crdt-text cache when receiving a server-coordinated snapshot", () => {
     const client = new FlowSyncClient({
       url: "ws://localhost:8765",
       nodeId: "alice"
@@ -332,7 +332,7 @@ describe("FlowSyncClient Core Tests", () => {
     clients.push(client)
     
     // Register stream as crdt-text
-    client["cacheMeta"].set("doc:crdt", { mergeRule: "crdt-text", nodeId: "alice", timestamp: Date.now() / 1000 })
+    client["cacheMeta"].set("doc:crdt", { mergeRule: "crdt-text", nodeId: "alice", timestamp: Date.now() / 1000 - 10 })
     
     // Generate 50,005 insert operations of character 'a'
     const ops = Array.from({ length: 50005 }, (_, i) => ({
@@ -340,28 +340,33 @@ describe("FlowSyncClient Core Tests", () => {
       pos: i,
       char: "a",
       op_id: `alice:${Date.now()}:${i}`,
-      ts: Date.now() / 1000
+      ts: Date.now() / 1000 - 5
     }))
     
     // Set initial cache
     client["cache"].set("doc:crdt", ops)
     
-    // Push one more operation to trigger merge and compaction
-    const newOp = {
+    // Server sends a compacted snapshot
+    const compactedSnapshot = [{
       op: "insert",
-      pos: 50005,
-      char: "b",
-      op_id: `alice:${Date.now()}:new`,
+      pos: 0,
+      char: "a".repeat(50005) + "b",
+      op_id: "compact:12345",
       ts: Date.now() / 1000
-    }
+    }]
     
-    client["applyIncomingUpdate"]("doc:crdt", newOp, { ts: Date.now() / 1000, node_id: "alice", merge_rule: "crdt-text" })
+    client["applyIncomingUpdate"]("doc:crdt", compactedSnapshot, {
+      ts: Date.now() / 1000,
+      node_id: "server",
+      merge_rule: "crdt-text",
+      snapshot: true // server-coordinated snapshot flag
+    })
     
     const cached = client["cache"].get("doc:crdt") as any[]
     expect(cached.length).toBe(1)
     expect(cached[0].op).toBe("insert")
-    expect(cached[0].op_id).toContain("compact:")
-    expect(cached[0].char.length).toBe(50006) // 50005 'a's + 1 'b'
+    expect(cached[0].op_id).toBe("compact:12345")
+    expect(cached[0].char.length).toBe(50006)
   })
 
   it("should handle malformed server messages safely without crash", async () => {

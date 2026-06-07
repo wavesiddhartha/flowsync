@@ -76,6 +76,7 @@ class FlowSyncNode:
 
         # Auth synchronization
         self._auth_future: Optional[asyncio.Future[str]] = None
+        self._connect_future: Optional[asyncio.Future[None]] = None
 
         # Callbacks & Caches
         self._active_subscriptions: Dict[str, Set[Callable[[Any, Dict[str, Any]], Any]]] = {}
@@ -124,20 +125,35 @@ class FlowSyncNode:
         """Connect to Hub. Resolves when connected and authenticated."""
         if self._is_online:
             return
-            
-        if self._reconnect_task and not self._reconnect_task.done():
-            self._reconnect_task.cancel()
-            self._reconnect_task = None
-            
-        if self._listener_task and not self._listener_task.done():
-            self._listener_task.cancel()
-            self._listener_task = None
 
-        self._explicit_disconnect = False
-        await self._connect_and_auth()
+        if self._connect_future and not self._connect_future.done():
+            await self._connect_future
+            return
 
-        # Start listener loop
-        self._listener_task = asyncio.create_task(self._listener_loop())
+        loop = asyncio.get_running_loop()
+        self._connect_future = loop.create_future()
+
+        try:
+            if self._reconnect_task and not self._reconnect_task.done():
+                self._reconnect_task.cancel()
+                self._reconnect_task = None
+                
+            if self._listener_task and not self._listener_task.done():
+                self._listener_task.cancel()
+                self._listener_task = None
+
+            self._explicit_disconnect = False
+            await self._connect_and_auth()
+
+            # Start listener loop
+            self._listener_task = asyncio.create_task(self._listener_loop())
+            self._connect_future.set_result(None)
+        except Exception as e:
+            if not self._connect_future.done():
+                self._connect_future.set_exception(e)
+            raise e
+        finally:
+            self._connect_future = None
 
     async def _connect_and_auth(self) -> None:
         """Establishes websocket connection and performs auth/reconnect handshake."""
@@ -340,6 +356,10 @@ class FlowSyncNode:
         self._explicit_disconnect = True
         self._is_online = False
         
+        if self._connect_future and not self._connect_future.done():
+            self._connect_future.cancel()
+            self._connect_future = None
+
         if self._listener_task:
             self._listener_task.cancel()
             self._listener_task = None

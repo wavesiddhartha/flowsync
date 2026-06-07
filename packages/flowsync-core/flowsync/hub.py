@@ -3,6 +3,7 @@ import logging
 import time
 import uuid
 import re
+import weakref
 from typing import Any, Callable, Dict, List, Literal, Optional, Set, Union
 import websockets
 from websockets.server import WebSocketServerProtocol
@@ -62,6 +63,7 @@ class FlowSyncHub:
         self._subscriptions: Dict[str, Dict[str, Callable[[], None]]] = {}  # node_id -> {stream_name: unsub_fn}
         self._rooms: Dict[str, Set[str]] = {}  # room_name -> {node_id}
         self._rate_limiter = FlowSyncRateLimiter()
+        self._ws_locks = weakref.WeakKeyDictionary()
 
         # Lifecycle events
         self._stop_event = asyncio.Event()
@@ -111,6 +113,20 @@ class FlowSyncHub:
                 try:
                     loop = asyncio.get_running_loop()
                     if loop.is_running():
+                        # Callback to push local changes to Redis pub/sub
+                        async def redis_update_callback(value, meta):
+                            if meta.get("source") != "redis":
+                                pub_meta = {**meta, "source": "redis", "access": s.access}
+                                # Use atomic pipeline if available
+                                if hasattr(self._redis, 'save_and_publish'):
+                                    await self._redis.save_and_publish(name, value, meta.get("ts", 0.0), meta.get("node_id", "system"), pub_meta)
+                                else:
+                                    await self._redis.save_stream_state(name, value, meta.get("ts", 0.0), meta.get("node_id", "system"), pub_meta)
+                                    await self._redis.publish_update(name, value, meta.get("ts", 0.0), meta.get("node_id", "system"), pub_meta)
+                        
+                        # VULN-50 FIX: Subscribe synchronously before yielding control during load_and_sub
+                        s.subscribe(redis_update_callback)
+
                         async def load_and_sub():
                             state = await self._redis.get_stream_state(name)
                             if state:
@@ -121,19 +137,6 @@ class FlowSyncHub:
                                         "source": "redis",
                                         **(state.get("metadata") or {})
                                     })
-                            
-                            # Callback to push local changes to Redis pub/sub
-                            async def redis_update_callback(value, meta):
-                                if meta.get("source") != "redis":
-                                    pub_meta = {**meta, "source": "redis", "access": s.access}
-                                    # Use atomic pipeline if available
-                                    if hasattr(self._redis, 'save_and_publish'):
-                                        await self._redis.save_and_publish(name, value, meta.get("ts", 0.0), meta.get("node_id", "system"), pub_meta)
-                                    else:
-                                        await self._redis.save_stream_state(name, value, meta.get("ts", 0.0), meta.get("node_id", "system"), pub_meta)
-                                        await self._redis.publish_update(name, value, meta.get("ts", 0.0), meta.get("node_id", "system"), pub_meta)
-                            
-                            s.subscribe(redis_update_callback)
                             
                         self._spawn(load_and_sub())
                 except RuntimeError:
@@ -181,10 +184,9 @@ class FlowSyncHub:
         msg = BroadcastMessage(event=event, data=data)
         encoded = protocol.encode(msg)
         
-        coros = [node.send(encoded) for node in self._nodes.values()]
+        coros = [self._send_raw(node, encoded) for node in self._nodes.values()]
         if coros:
             await asyncio.gather(*coros, return_exceptions=True)
-            self._total_messages += len(coros)
 
     async def broadcast_to_room(self, room: str, event: str, data: Any) -> None:
         """Broadcast a custom event to a specific room/namespace."""
@@ -199,11 +201,10 @@ class FlowSyncHub:
         for node_id in node_ids:
             node = self._nodes.get(node_id)
             if node:
-                coros.append(node.send(encoded))
+                coros.append(self._send_raw(node, encoded))
 
         if coros:
             await asyncio.gather(*coros, return_exceptions=True)
-            self._total_messages += len(coros)
 
     def stats(self) -> Dict[str, Any]:
         """Return live stats: node count, stream count, msg/s."""
@@ -238,14 +239,22 @@ class FlowSyncHub:
         except asyncio.CancelledError:
             pass
 
+    async def _send_raw(self, websocket: WebSocketServerProtocol, encoded: str) -> None:
+        """Send a raw encoded string over a WebSocket, serialized using a connection lock."""
+        lock = self._ws_locks.get(websocket)
+        if lock is None:
+            lock = self._ws_locks.setdefault(websocket, asyncio.Lock())
+        async with lock:
+            try:
+                await websocket.send(encoded)
+                self._msg_counter_current += 1
+                self._total_messages += 1
+            except websockets.exceptions.ConnectionClosed:
+                pass
+
     async def _send_message(self, websocket: WebSocketServerProtocol, msg: FlowSyncMessage) -> None:
         """Encode and send a message over a WebSocket, tracking stats."""
-        try:
-            await websocket.send(protocol.encode(msg))
-            self._msg_counter_current += 1
-            self._total_messages += 1
-        except websockets.exceptions.ConnectionClosed:
-            pass
+        await self._send_raw(websocket, protocol.encode(msg))
 
     async def _send_error(self, websocket: WebSocketServerProtocol, code: int, message: str) -> None:
         """Send an ErrorMessage to the client."""

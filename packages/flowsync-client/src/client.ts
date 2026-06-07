@@ -144,6 +144,14 @@ export class FlowSyncClient {
           this.stopHeartbeat()
           this._isOnline = false
           this.ws = null
+
+          // Reject all pending GET requests on connection close
+          for (const [reqId, pending] of this.pendingGets.entries()) {
+            clearTimeout(pending.timeout)
+            pending.reject(new Error("FlowSyncClient: connection closed."))
+          }
+          this.pendingGets.clear()
+
           this.emit("disconnect")
 
           if (this.authReject) {
@@ -175,6 +183,13 @@ export class FlowSyncClient {
       clearTimeout(this.reconnectTimeout)
       this.reconnectTimeout = null
     }
+
+    // Reject all pending GET requests on disconnect
+    for (const [reqId, pending] of this.pendingGets.entries()) {
+      clearTimeout(pending.timeout)
+      pending.reject(new Error("FlowSyncClient: disconnected explicitly."))
+    }
+    this.pendingGets.clear()
 
     if (this.ws) {
       const socket = this.ws
@@ -423,7 +438,8 @@ export class FlowSyncClient {
         this.applyIncomingUpdate(msg.stream, msg.value, {
           ts: msg.ts,
           node_id: msg.node_id,
-          merge_rule: msg.metadata?.merge_rule
+          merge_rule: msg.metadata?.merge_rule,
+          snapshot: msg.metadata?.snapshot
         })
         break
       }
@@ -465,7 +481,8 @@ export class FlowSyncClient {
           this.applyIncomingUpdate(update.stream, update.value, {
             ts: update.ts,
             node_id: update.node_id,
-            merge_rule: update.metadata?.merge_rule
+            merge_rule: update.metadata?.merge_rule,
+            snapshot: update.metadata?.snapshot
           })
         }
 
@@ -598,7 +615,8 @@ export class FlowSyncClient {
       node_id: existingMeta.nodeId
     }
 
-    if (existingMeta.timestamp > 0) {
+    // Skip merging and overwrite if this is a server-coordinated snapshot/compaction
+    if (existingMeta.timestamp > 0 && !meta.snapshot) {
       let mergeFn: any
       if (mergeRule === "crdt-counter") mergeFn = crdtCounterMerge
       else if (mergeRule === "crdt-set") mergeFn = crdtSetMerge
@@ -731,21 +749,8 @@ function crdtTextMerge(valA: any, valB: any, metaA: any, metaB: any): [any, any]
   const listA = Array.isArray(valA) ? valA : []
   const listB = Array.isArray(valB) ? valB : (valB && typeof valB === "object" && "op" in valB ? [valB] : [])
 
-  let merged = mergeOps(listA, listB)
+  const merged = mergeOps(listA, listB)
   const ts = Math.max(metaA?.ts || 0, metaB?.ts || 0)
-  
-  // ── SECURITY: Compact if ops exceed limit ──
-  const MAX_CRDT_TEXT_OPS = 50000
-  if (merged.length > MAX_CRDT_TEXT_OPS) {
-    const finalText = applyAllText(merged)
-    merged = [{
-      op: "insert",
-      pos: 0,
-      char: finalText,
-      op_id: `compact:${Date.now()}`,
-      ts: ts
-    }]
-  }
 
   return [merged, { ...metaB, ts }]
 }
